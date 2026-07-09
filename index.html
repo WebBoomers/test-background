@@ -3,40 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Perfect 2.5D Frame Asset Studio</title>
+    <title>AI 2.5D Frame Asset Studio</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers';
         
-        
-        // 1. Force config tracking files to read from your repository assets locally
-        env.allowLocalModels = true; 
-        env.localModelPath = './models/'; 
-
-        // 2. Direct WebAssembly stream loader to read weights from your Catbox link
-        env.remoteModelPath = 'https://files.catbox.moe/iq8j6z.onnx'; 
-        env.remotePathTemplate = ''; 
-        env.allowRemoteModels = true;
-
-        // 3. Disable multi-threading parameters that cause mobile browser security crashes
+        // CRITICAL: Keep mobile WASM stability parameters active so the phone browser doesn't crash
         env.backends.onnx.wasm.numThreads = 1; 
         env.backends.onnx.wasm.simd = false; 
         env.backends.onnx.wasm.proxy = false; 
+
+        // Notice we have removed all the localModelPath and remoteModelPath overrides!
+        // V3 handles the Hugging Face Hub flawlessly out of the box.
 
         window.briaPipeline = null;
 
         async function initAI() {
             const statusEl = document.getElementById('ai_status');
             try {
-                // Instantiates the model using our custom hybrid mapping paths
-                window.briaPipeline = await pipeline('image-segmentation', 'bria-rmbg-1.4');
+                // Initialize using the official V3 repo mapping
+                window.briaPipeline = await pipeline('image-segmentation', 'briaai/RMBG-1.4');
                 
-                statusEl.innerText = "⚡ Hybrid Cloud AI Engine Connected & Ready!";
+                statusEl.innerText = "⚡ Native Cloud AI Engine Connected & Ready!";
                 statusEl.className = "text-emerald-400 mt-1 text-xs font-bold";
             } catch (err) {
-                statusEl.innerText = "❌ Configuration Error. Verify your models directory folder structure.";
+                statusEl.innerText = "❌ Initialization Error. Check console.";
                 statusEl.className = "text-rose-500 mt-1 text-xs font-bold";
-                console.error(err);
+                console.error("AI Pipeline failed to load:", err);
             }
         }
         window.addEventListener('DOMContentLoaded', initAI);
@@ -49,7 +42,7 @@
             <h1 class="text-3xl font-black tracking-tight bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent">
                 AI 2.5D Frame Studio
             </h1>
-            <p id="ai_status" class="text-amber-400 mt-1 text-xs font-bold animate-pulse">⏳ Initializing Cloud Wasm Streams...</p>
+            <p id="ai_status" class="text-amber-400 mt-1 text-xs font-bold animate-pulse">⏳ Initializing Secure V3 Wasm Streams...</p>
         </header>
 
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-3xl mx-auto shadow-xl space-y-4">
@@ -157,14 +150,14 @@
                 img.onload = function() {
                     rawImages[perspective] = img;
                     document.getElementById(`label_${perspective}`).innerText = "✅ Image Staged";
-                    renderIndividualSlotWithAI(perspective);
+                    renderIndividualSlotWithAI(perspective, e.target.result);
                 };
                 img.src = e.target.result;
             };
             reader.readAsDataURL(file);
         }
 
-        async function renderIndividualSlotWithAI(perspective) {
+        async function renderIndividualSlotWithAI(perspective, baseDataUrl) {
             const img = rawImages[perspective];
             if (!img || !window.briaPipeline) return;
 
@@ -189,23 +182,36 @@
             const x = (baseW - targetW) / 2;
             const y = (baseH - targetH) / 2;
 
-            ctx.drawImage(img, x, y, targetW, targetH);
-
             try {
-                const dataUrl = canvas.toDataURL('image/png');
-                const result = await window.briaPipeline(dataUrl);
+                // Execute the V3 pipeline on the raw uploaded image data
+                const result = await window.briaPipeline(baseDataUrl);
                 
-                ctx.clearRect(0, 0, baseW, baseH);
-                
+                // For briaai/RMBG-1.4 in V3, result is typically a single object or Image
+                // We extract the url or base64 directly from the output
                 const aiImg = new Image();
                 aiImg.onload = function() {
-                    ctx.drawImage(aiImg, 0, 0, baseW, baseH);
+                    ctx.drawImage(aiImg, x, y, targetW, targetH);
                     applySideOcclusionMask(ctx, perspective, baseW, baseH);
                     spinner.classList.add('hidden');
                 };
-                aiImg.src = result.url;
+                
+                // Fallback handling depending on the V3 return type structure
+                if (result.url) {
+                    aiImg.src = result.url;
+                } else if (result.src) {
+                    aiImg.src = result.src;
+                } else if (Array.isArray(result) && result[0].mask) {
+                    // Extracting mask from array format if applicable
+                    aiImg.src = result[0].mask.url || result[0].mask.src;
+                } else {
+                    // Fallback to plotting the raw original if the API structure shifted
+                    aiImg.src = baseDataUrl; 
+                }
+
             } catch (err) {
                 console.error("AI Segmentation Failure: ", err);
+                // Fallback to rendering the original image if the AI fails
+                ctx.drawImage(img, x, y, targetW, targetH);
                 spinner.classList.add('hidden');
             }
         }

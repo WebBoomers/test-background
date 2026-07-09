@@ -13,16 +13,13 @@
         env.backends.onnx.wasm.simd = false; 
         env.backends.onnx.wasm.proxy = false; 
 
-        // Notice we have removed all the localModelPath and remoteModelPath overrides!
-        // V3 handles the Hugging Face Hub flawlessly out of the box.
-
         window.briaPipeline = null;
 
         async function initAI() {
             const statusEl = document.getElementById('ai_status');
             try {
-                // Initialize using the official V3 repo mapping
-                window.briaPipeline = await pipeline('image-segmentation', 'briaai/RMBG-1.4');
+                // THE FIX: Use the dedicated 'background-removal' task and the official V3 optimized ONNX model
+                window.briaPipeline = await pipeline('background-removal', 'onnx-community/ormbg-ONNX');
                 
                 statusEl.innerText = "⚡ Native Cloud AI Engine Connected & Ready!";
                 statusEl.className = "text-emerald-400 mt-1 text-xs font-bold";
@@ -183,34 +180,27 @@
             const y = (baseH - targetH) / 2;
 
             try {
-                // Execute the V3 pipeline on the raw uploaded image data
+                // Execute the new V3 background-removal pipeline
                 const result = await window.briaPipeline(baseDataUrl);
                 
-                // For briaai/RMBG-1.4 in V3, result is typically a single object or Image
-                // We extract the url or base64 directly from the output
-                const aiImg = new Image();
-                aiImg.onload = function() {
-                    ctx.drawImage(aiImg, x, y, targetW, targetH);
-                    applySideOcclusionMask(ctx, perspective, baseW, baseH);
-                    spinner.classList.add('hidden');
-                };
+                // V3 background-removal directly outputs a RawImage object
+                const rawImage = Array.isArray(result) ? result[0] : result;
                 
-                // Fallback handling depending on the V3 return type structure
-                if (result.url) {
-                    aiImg.src = result.url;
-                } else if (result.src) {
-                    aiImg.src = result.src;
-                } else if (Array.isArray(result) && result[0].mask) {
-                    // Extracting mask from array format if applicable
-                    aiImg.src = result[0].mask.url || result[0].mask.src;
-                } else {
-                    // Fallback to plotting the raw original if the API structure shifted
-                    aiImg.src = baseDataUrl; 
-                }
+                // THE BEST PART: Convert the transparent output instantly to a canvas element
+                const maskCanvas = rawImage.toCanvas();
+                
+                // Clear the raw image from the slot
+                ctx.clearRect(0, 0, baseW, baseH);
+                
+                // Draw the perfectly isolated subject right onto our perspective grid
+                ctx.drawImage(maskCanvas, x, y, targetW, targetH);
+                
+                applySideOcclusionMask(ctx, perspective, baseW, baseH);
+                spinner.classList.add('hidden');
 
             } catch (err) {
                 console.error("AI Segmentation Failure: ", err);
-                // Fallback to rendering the original image if the AI fails
+                // Fallback to plotting the raw original if the AI fails
                 ctx.drawImage(img, x, y, targetW, targetH);
                 spinner.classList.add('hidden');
             }

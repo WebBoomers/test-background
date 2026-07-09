@@ -3,43 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Unlimited Free 2.5D Frame Studio</title>
+    <title>Perfect 2.5D Frame Asset Studio</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
         
-        // CRITICAL ENVIRONMENT STABILITY FIXES FOR LOCALHOST AND MOBILE:
-        env.allowLocalModels = false;
+        // 1. Force config tracking files to read from your repository assets locally
+        env.allowLocalModels = true; 
+        env.localModelPath = './models/'; 
+
+        // 2. Direct WebAssembly stream loader to read weights from your Catbox link
+        env.remoteModelPath = 'https://files.catbox.moe/iq8j6z.onnx'; 
+        env.remotePathTemplate = ''; 
+        env.allowRemoteModels = true;
+
+        // 3. Disable multi-threading parameters that cause mobile browser security crashes
         env.backends.onnx.wasm.numThreads = 1; 
         env.backends.onnx.wasm.simd = false; 
         env.backends.onnx.wasm.proxy = false; 
-
-        // Reroute asset paths to public CDN mirrors to bypass iframe restrictions
-        env.remoteModelPath = 'https://cdn.jsdelivr.net/npm/@xenova/transformers-models/';
-        env.remotePathTemplate = '{model}/';
 
         window.briaPipeline = null;
 
         async function initAI() {
             const statusEl = document.getElementById('ai_status');
             try {
-                // Initialize the compact BRIA RMBG-1.4 model pipeline (~24MB)
+                // Instantiates the model using our custom hybrid mapping paths
                 window.briaPipeline = await pipeline('image-segmentation', 'bria-rmbg-1.4');
                 
-                statusEl.innerText = "⚡ 100% Free Client AI Engine Active & Ready!";
+                statusEl.innerText = "⚡ Hybrid Cloud AI Engine Connected & Ready!";
                 statusEl.className = "text-emerald-400 mt-1 text-xs font-bold";
             } catch (err) {
-                console.warn("CDN mirror restricted, trying direct hub route...", err);
-                try {
-                    env.remoteModelPath = 'https://huggingface.co/Xenova/bria-rmbg-1.4/resolve/main/';
-                    env.remotePathTemplate = '';
-                    window.briaPipeline = await pipeline('image-segmentation', 'Xenova/bria-rmbg-1.4');
-                    statusEl.innerText = "⚡ 100% Free Client AI Engine Active (Via Hub Gateway)";
-                    statusEl.className = "text-emerald-400 mt-1 text-xs font-bold";
-                } catch(finalErr) {
-                    statusEl.innerText = "❌ Pipeline Initialization Error. Refresh or check connection.";
-                    statusEl.className = "text-rose-500 mt-1 text-xs font-bold";
-                }
+                statusEl.innerText = "❌ Configuration Error. Verify your models directory folder structure.";
+                statusEl.className = "text-rose-500 mt-1 text-xs font-bold";
+                console.error(err);
             }
         }
         window.addEventListener('DOMContentLoaded', initAI);
@@ -50,9 +46,9 @@
     <div class="max-w-5xl w-full space-y-6">
         <header class="text-center">
             <h1 class="text-3xl font-black tracking-tight bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent">
-                Unlimited Free 2.5D Frame Studio
+                AI 2.5D Frame Studio
             </h1>
-            <p id="ai_status" class="text-amber-400 mt-1 text-xs font-bold animate-pulse">⏳ Spinning Up Single-Thread Wasm AI Engine...</p>
+            <p id="ai_status" class="text-amber-400 mt-1 text-xs font-bold animate-pulse">⏳ Initializing Cloud Wasm Streams...</p>
         </header>
 
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-3xl mx-auto shadow-xl space-y-4">
@@ -159,7 +155,7 @@
                 const img = new Image();
                 img.onload = function() {
                     rawImages[perspective] = img;
-                    document.getElementById(`label_${perspective}`).innerText = "✅ Staged";
+                    document.getElementById(`label_${perspective}`).innerText = "✅ Image Staged";
                     renderIndividualSlotWithAI(perspective);
                 };
                 img.src = e.target.result;
@@ -195,7 +191,6 @@
             ctx.drawImage(img, x, y, targetW, targetH);
 
             try {
-                // Pass base64 texture frame seamlessly into browser-allocated WebAssembly heap
                 const dataUrl = canvas.toDataURL('image/png');
                 const result = await window.briaPipeline(dataUrl);
                 
@@ -259,7 +254,7 @@
         function downloadSheet() {
             const masterCanvas = document.getElementById('master_composite_canvas');
             const virtualAnchor = document.createElement('a');
-            virtualAnchor.download = 'perfect_2.5d_ai_frame_sheet.png';
+            virtualAnchor.download = '2.5d_perfect_ai_sheet.png';
             virtualAnchor.href = masterCanvas.toDataURL("image/png");
             virtualAnchor.click();
         }

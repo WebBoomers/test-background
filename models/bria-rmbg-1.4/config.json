@@ -2,8 +2,7 @@
   "architectures": [
     "RMBG"
   ],
-  "model_type": "rmbg",
+  "model_type": "bria-rmbg",
   "is_encoder_decoder": false,
   "normalized_config": true
 }
-
